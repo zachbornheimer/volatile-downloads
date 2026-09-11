@@ -1,48 +1,76 @@
 # volatile-downloads
 
-Point `~/Downloads` at `/tmp/Downloads` at login so browser downloads stay
-disposable. Replaces the 2014 Intel Automator applet (`Download-Workflow.app`).
+`~/Downloads` is a junk drawer. This points it at `/tmp/Downloads` at login so
+browser downloads stay disposable and do not pile up in home.
 
-## Install
+You do **not** need a checkout under `~/Developer/Personal/`. Delete this
+repo whenever you want. Chezmoi installs the binary from GitHub Releases.
 
-On this Mac, chezmoi builds from the checkout and copies the binary to
-`~/.local/bin` and `~/go/bin`, then loads the LaunchAgent.
+## Install (the real path)
 
-On a machine without the checkout, chezmoi downloads the pinned GitHub
-Release asset (`volatile-downloads-darwin-arm64` or `-amd64`).
+On macOS, `chezmoi apply` (or `chezmoi init --apply` on a new machine):
 
-Manual:
+1. Downloads the pinned release (`v0.1.2`) for this Mac
+   (`volatile-downloads-darwin-arm64` or `-amd64`).
+2. Installs it to `~/.local/bin/volatile-downloads` **and** `~/go/bin/volatile-downloads`.
+3. Loads LaunchAgent `com.zbornheimer.volatile-downloads` (runs at login).
+
+That lives in the [dotfiles](https://github.com/zachbornheimer/dotfiles) repo:
+
+- `home/run_onchange_after_install-volatile-downloads.sh.tmpl`
+- `home/Library/LaunchAgents/com.zbornheimer.volatile-downloads.plist.tmpl`
+
+Bump the `# rev:` line and `pin=` in the install script when cutting a new
+release, then `chezmoi apply`.
+
+To build from a checkout instead of the release:
 
 ```bash
-mise run install
+VOLATILE_DOWNLOADS_FROM_SOURCE=1 chezmoi apply
 ```
 
-Or:
-
-```bash
-go install github.com/zachbornheimer/volatile-downloads/cmd/volatile-downloads@v0.1.1
-```
-
-## What it does
+## What it does at login
 
 1. Ensures `/tmp/Downloads` exists (mode 755, owned by you — no sudo).
-2. If `~/Downloads` already points there, exits.
+2. Makes `~/Downloads` a symlink there. Already correct → no-op.
 3. If `~/Downloads` is a real folder, moves its contents into `/tmp/Downloads`
-   then replaces the folder with the symlink.
+   (incoming file wins on name collision), then replaces the folder with the
+   symlink. It will not `rm -R` a real Downloads folder.
 4. Stamps `/tmp/Downloads` with the system Downloads folder icon
-   (`DownloadsFolder.icns`) so Finder and the Dock stack are not a generic
-   folder. Relaunches Dock only when the icon was missing or the symlink changed.
-5. It will not delete a real Downloads folder or chmod 777. `--no-dock` skips
-   the Dock relaunch (tests).
+   (`DownloadsFolder.icns`). Relaunches Dock only when the icon was missing or
+   the symlink changed.
 
 `/tmp` on macOS is not a ramdisk. Files usually survive reboot until the
-system's periodic tmp cleanup.
+system's periodic tmp cleanup. That is still the point: Downloads are not a
+durable archive.
+
+This replaced the 2014 Intel Automator applet (`Download-Workflow.app`) that
+deleted `~/Downloads` every login, chmod 777, and SIGKILL'd Dock.
+
+## Develop (optional)
+
+```bash
+git clone git@github.com:zachbornheimer/volatile-downloads.git
+cd volatile-downloads
+mise run test
+mise run install          # local signed build → ~/.local/bin and ~/go/bin
+```
+
+```bash
+go install github.com/zachbornheimer/volatile-downloads/cmd/volatile-downloads@v0.1.2
+```
+
+`go install` only puts the binary in `GOBIN`. It does not load the LaunchAgent.
+Chezmoi does that.
 
 ## Flags
 
 ```
 volatile-downloads --version
 volatile-downloads --target /tmp/Downloads --link ~/Downloads
+volatile-downloads --no-dock
 ```
 
-Env overrides: `VOLATILE_DOWNLOADS_TARGET`, `VOLATILE_DOWNLOADS_LINK`.
+`--no-dock` skips the Dock relaunch (tests).
+
+Env: `VOLATILE_DOWNLOADS_TARGET`, `VOLATILE_DOWNLOADS_LINK`.
