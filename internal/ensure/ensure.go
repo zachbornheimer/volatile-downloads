@@ -12,8 +12,15 @@ const TargetPerm fs.FileMode = 0o755
 
 // Config names the tmp directory and the Downloads path that should point at it.
 type Config struct {
-	Target string
-	Link   string
+	Target      string
+	Link        string
+	RefreshDock bool
+}
+
+// Look applies the system Downloads folder icon and refreshes the Dock.
+type Look interface {
+	ApplyDownloadsIcon(dir string) error
+	RefreshDock() error
 }
 
 // FS is the filesystem port. ensure defines it; files.OS implements it.
@@ -34,6 +41,9 @@ func Observe(fsys FS, cfg Config) (Observation, error) {
 	var obs Observation
 	if _, err := fsys.Lstat(cfg.Target); err == nil {
 		obs.TargetExists = true
+		if _, err := fsys.Lstat(filepath.Join(cfg.Target, iconFileName)); err == nil {
+			obs.TargetHasIcon = true
+		}
 	} else if !os.IsNotExist(err) {
 		return Observation{}, fmt.Errorf("stat target %q: %w", cfg.Target, err)
 	}
@@ -73,7 +83,7 @@ func Observe(fsys FS, cfg Config) (Observation, error) {
 }
 
 // Execute applies plan. It does not invent policy.
-func Execute(fsys FS, cfg Config, plan Plan) error {
+func Execute(fsys FS, look Look, cfg Config, plan Plan) error {
 	if plan.Action == ActionRefuse {
 		return fmt.Errorf("%s", plan.Reason)
 	}
@@ -82,35 +92,54 @@ func Execute(fsys FS, cfg Config, plan Plan) error {
 	}
 	switch plan.Action {
 	case ActionNothing:
-		return nil
 	case ActionCreateLink:
-		return createLink(fsys, cfg)
+		if err := createLink(fsys, cfg); err != nil {
+			return err
+		}
 	case ActionReplaceSymlink:
 		if err := fsys.Remove(cfg.Link); err != nil {
 			return fmt.Errorf("remove symlink %q: %w", cfg.Link, err)
 		}
-		return createLink(fsys, cfg)
+		if err := createLink(fsys, cfg); err != nil {
+			return err
+		}
 	case ActionMergeAndReplace:
 		if err := mergeDir(fsys, cfg, plan.Merge); err != nil {
 			return err
 		}
-		return createLink(fsys, cfg)
+		if err := createLink(fsys, cfg); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown action %d", plan.Action)
 	}
+	return applyLook(look, cfg.Target, plan.RefreshDock)
 }
 
 // Run observes, decides, and executes.
-func Run(fsys FS, cfg Config) (Plan, error) {
+func Run(fsys FS, look Look, cfg Config) (Plan, error) {
 	obs, err := Observe(fsys, cfg)
 	if err != nil {
 		return Plan{}, err
 	}
 	plan := Decide(obs, cfg)
-	if err := Execute(fsys, cfg, plan); err != nil {
+	if err := Execute(fsys, look, cfg, plan); err != nil {
 		return plan, err
 	}
 	return plan, nil
+}
+
+func applyLook(look Look, dir string, refreshDock bool) error {
+	if look == nil {
+		return nil
+	}
+	if err := look.ApplyDownloadsIcon(dir); err != nil {
+		return fmt.Errorf("downloads icon: %w", err)
+	}
+	if refreshDock {
+		_ = look.RefreshDock()
+	}
+	return nil
 }
 
 func ensureTarget(fsys FS, target string) error {
@@ -145,8 +174,8 @@ func mergeDir(fsys FS, cfg Config, names []string) error {
 			return fmt.Errorf("move %q to %q: %w", src, dst, err)
 		}
 	}
-	dsStore := filepath.Join(cfg.Link, dsStoreName)
-	_ = fsys.Remove(dsStore)
+	_ = fsys.Remove(filepath.Join(cfg.Link, dsStoreName))
+	_ = fsys.Remove(filepath.Join(cfg.Link, iconFileName))
 	if err := fsys.Remove(cfg.Link); err != nil {
 		return fmt.Errorf("replace directory %q: %w", cfg.Link, err)
 	}

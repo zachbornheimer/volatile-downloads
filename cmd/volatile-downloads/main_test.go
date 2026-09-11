@@ -27,7 +27,7 @@ func TestBinaryCreatesSymlinkInSandbox(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "tmp-downloads")
 	link := filepath.Join(root, "Downloads")
-	cmd := exec.Command(bin, "--target", target, "--link", link)
+	cmd := exec.Command(bin, "--no-dock", "--target", target, "--link", link)
 	cmd.Env = append(os.Environ(), "NO_COLOR=1")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("run: %v\n%s", err, out)

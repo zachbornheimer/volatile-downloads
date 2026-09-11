@@ -29,7 +29,11 @@ go install github.com/zachbornheimer/volatile-downloads/cmd/volatile-downloads@v
 2. If `~/Downloads` already points there, exits.
 3. If `~/Downloads` is a real folder, moves its contents into `/tmp/Downloads`
    then replaces the folder with the symlink.
-4. It will not delete a real Downloads folder, chmod 777, or kill Dock.
+4. Stamps `/tmp/Downloads` with the system Downloads folder icon
+   (`DownloadsFolder.icns`) so Finder and the Dock stack are not a generic
+   folder. Relaunches Dock only when the icon was missing or the symlink changed.
+5. It will not delete a real Downloads folder or chmod 777. `--no-dock` skips
+   the Dock relaunch (tests).
 
 `/tmp` on macOS is not a ramdisk. Files usually survive reboot until the
 system's periodic tmp cleanup.

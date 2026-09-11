@@ -21,7 +21,7 @@ func sandbox(t *testing.T) ensure.Config {
 func TestRun_CreatesSymlinkWhenMissing(t *testing.T) {
 	t.Parallel()
 	cfg := sandbox(t)
-	plan, err := ensure.Run(files.OS{}, cfg)
+	plan, err := ensure.Run(files.OS{}, nil, cfg)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestRun_NoopWhenAlreadyCorrect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := ensure.Run(files.OS{}, cfg)
+	plan, err := ensure.Run(files.OS{}, nil, cfg)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestRun_ReplacesWrongSymlink(t *testing.T) {
 	if err := os.Symlink(other, cfg.Link); err != nil {
 		t.Fatal(err)
 	}
-	plan, err := ensure.Run(files.OS{}, cfg)
+	plan, err := ensure.Run(files.OS{}, nil, cfg)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestRun_ReplacesEmptyDirectory(t *testing.T) {
 	if err := os.MkdirAll(cfg.Link, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	plan, err := ensure.Run(files.OS{}, cfg)
+	plan, err := ensure.Run(files.OS{}, nil, cfg)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestRun_MergesExistingFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfg.Link, "receipt.pdf"), []byte("kept"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	plan, err := ensure.Run(files.OS{}, cfg)
+	plan, err := ensure.Run(files.OS{}, nil, cfg)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestRun_NameCollisionKeepsIncomingDownloadsFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cfg.Link, "receipt.pdf"), []byte("from-downloads"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	plan, err := ensure.Run(files.OS{}, cfg)
+	plan, err := ensure.Run(files.OS{}, nil, cfg)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestRun_RemoveAllNeverTargetsDownloadsPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := &recordingFS{FS: files.OS{}}
-	if _, err := ensure.Run(rec, cfg); err != nil {
+	if _, err := ensure.Run(rec, nil, cfg); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	for _, path := range rec.removeAll {
@@ -190,7 +190,7 @@ func TestRun_RefusesRegularFile(t *testing.T) {
 	if err := os.WriteFile(cfg.Link, []byte("nope"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := ensure.Run(files.OS{}, cfg)
+	_, err := ensure.Run(files.OS{}, nil, cfg)
 	if err == nil {
 		t.Fatal("expected refuse error")
 	}
@@ -201,6 +201,62 @@ func TestRun_RefusesRegularFile(t *testing.T) {
 	if info.Mode()&os.ModeSymlink != 0 || info.IsDir() {
 		t.Fatal("regular file was replaced")
 	}
+}
+
+func TestRun_AppliesDownloadsIconOnNoop(t *testing.T) {
+	t.Parallel()
+	cfg := sandbox(t)
+	cfg.RefreshDock = true
+	if err := os.MkdirAll(cfg.Target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(cfg.Target, cfg.Link); err != nil {
+		t.Fatal(err)
+	}
+	look := &recordLook{}
+	plan, err := ensure.Run(files.OS{}, look, cfg)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if plan.Action != ensure.ActionNothing {
+		t.Fatalf("action = %v, want nothing", plan.Action)
+	}
+	if len(look.dirs) != 1 || look.dirs[0] != cfg.Target {
+		t.Fatalf("icon dirs = %v, want [%s]", look.dirs, cfg.Target)
+	}
+	if look.docks != 1 {
+		t.Fatalf("dock refreshes = %d, want 1 on first icon apply", look.docks)
+	}
+}
+
+func TestRun_SkipsLookWhenRefused(t *testing.T) {
+	t.Parallel()
+	cfg := sandbox(t)
+	if err := os.WriteFile(cfg.Link, []byte("nope"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	look := &recordLook{}
+	if _, err := ensure.Run(files.OS{}, look, cfg); err == nil {
+		t.Fatal("expected refuse error")
+	}
+	if len(look.dirs) != 0 || look.docks != 0 {
+		t.Fatalf("look ran on refuse: dirs=%v docks=%d", look.dirs, look.docks)
+	}
+}
+
+type recordLook struct {
+	dirs  []string
+	docks int
+}
+
+func (r *recordLook) ApplyDownloadsIcon(dir string) error {
+	r.dirs = append(r.dirs, dir)
+	return nil
+}
+
+func (r *recordLook) RefreshDock() error {
+	r.docks++
+	return nil
 }
 
 func assertDesiredSymlink(t *testing.T, cfg ensure.Config) {
