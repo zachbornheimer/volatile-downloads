@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Chezmoi owns the installed copy under ~/Library/LaunchAgents.
+  This file is the in-repo source of truth for the job definition.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.zbornheimer.volatile-downloads</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/zbornheimer/.local/bin/volatile-downloads</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/Users/zbornheimer/Library/Logs/volatile-downloads.launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/zbornheimer/Library/Logs/volatile-downloads.launchd.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key>
+    <string>/Users/zbornheimer</string>
+  </dict>
+</dict>
+</plist>

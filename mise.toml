@@ -1,0 +1,77 @@
+[tools]
+go = "1.25"
+
+[tasks.setup]
+description = "Download Go modules"
+run = "go mod download"
+
+[tasks.build]
+description = "Build and sign volatile-downloads into ./bin/"
+run = """
+set -euo pipefail
+mkdir -p bin
+VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
+go build -ldflags "-s -w -X main.Version=${VERSION}" -o bin/volatile-downloads ./cmd/volatile-downloads
+if [ -n "${CODESIGN_IDENTITY:-}" ]; then
+  IDENTITY="${CODESIGN_IDENTITY}"
+else
+  IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | grep 'Developer ID Application' | head -1 | awk -F'"' '{print $2}')"
+fi
+if [ -n "${IDENTITY}" ]; then
+  codesign --sign "${IDENTITY}" \
+    --identifier com.zbornheimer.volatile-downloads \
+    --entitlements entitlements.plist \
+    --options runtime \
+    --timestamp \
+    bin/volatile-downloads
+else
+  echo "No Developer ID identity found — shipping unsigned build."
+fi
+"""
+
+[tasks.install]
+description = "Install to ~/.local/bin and ~/go/bin"
+depends = ["build"]
+run = """
+set -euo pipefail
+mkdir -p "$HOME/.local/bin" "$HOME/go/bin"
+install -m 755 bin/volatile-downloads "$HOME/.local/bin/volatile-downloads"
+install -m 755 bin/volatile-downloads "$HOME/go/bin/volatile-downloads"
+echo "installed: $HOME/.local/bin/volatile-downloads"
+echo "installed: $HOME/go/bin/volatile-downloads"
+"""
+
+[tasks.test]
+description = "Run unit tests"
+run = "go test ./..."
+
+[tasks.lint]
+description = "gofmt + go vet"
+run = """
+set -euo pipefail
+out="$(gofmt -l .)"
+if [ -n "${out}" ]; then
+  echo "gofmt needed:" >&2
+  echo "${out}" >&2
+  exit 1
+fi
+go vet ./...
+"""
+
+[tasks.scan]
+description = "go vet (SAST stand-in for this tiny binary)"
+run = "go vet ./..."
+
+[tasks.doctor]
+description = "Verify the standard mise task contract"
+run = """
+set -euo pipefail
+for t in setup build lint test scan doctor ci; do
+  mise tasks | grep -q "^${t} " || { echo "missing task: ${t}" >&2; exit 1; }
+done
+echo "doctor: ok"
+"""
+
+[tasks.ci]
+description = "lint + test + scan"
+depends = ["lint", "test", "scan"]

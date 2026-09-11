@@ -1,0 +1,22 @@
+# Block everything
+*
+
+# Then allow what belongs
+!/.gitignore
+!/.github/
+!/.github/**
+!/LAYOUT.md
+!/LICENSE
+!/README.md
+!/docs/
+!/docs/**
+!/mise.toml
+!/go.mod
+!/go.sum
+!/entitlements.plist
+!/cmd/
+!/cmd/**
+!/internal/
+!/internal/**
+!/launchd/
+!/launchd/**
