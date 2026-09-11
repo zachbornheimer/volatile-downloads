@@ -20,7 +20,7 @@ mise run install
 Or:
 
 ```bash
-go install github.com/zachbornheimer/volatile-downloads/cmd/volatile-downloads@v0.1.0
+go install github.com/zachbornheimer/volatile-downloads/cmd/volatile-downloads@v0.1.1
 ```
 
 ## What it does

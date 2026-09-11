@@ -122,6 +122,68 @@ func TestRun_MergesExistingFiles(t *testing.T) {
 	}
 }
 
+func TestRun_NameCollisionKeepsIncomingDownloadsFile(t *testing.T) {
+	t.Parallel()
+	cfg := sandbox(t)
+	if err := os.MkdirAll(cfg.Link, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(cfg.Target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.Target, "receipt.pdf"), []byte("stale-tmp"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.Link, "receipt.pdf"), []byte("from-downloads"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := ensure.Run(files.OS{}, cfg)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if plan.Action != ensure.ActionMergeAndReplace {
+		t.Fatalf("action = %v, want merge/replace", plan.Action)
+	}
+	got, err := os.ReadFile(filepath.Join(cfg.Target, "receipt.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "from-downloads" {
+		t.Fatalf("merged content = %q, want incoming Downloads file", got)
+	}
+	assertDesiredSymlink(t, cfg)
+}
+
+func TestRun_RemoveAllNeverTargetsDownloadsPath(t *testing.T) {
+	t.Parallel()
+	cfg := sandbox(t)
+	if err := os.MkdirAll(cfg.Link, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.Link, "a.txt"), []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := &recordingFS{FS: files.OS{}}
+	if _, err := ensure.Run(rec, cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	for _, path := range rec.removeAll {
+		if path == cfg.Link {
+			t.Fatalf("RemoveAll(%q) targeted the Downloads path", path)
+		}
+	}
+}
+
+type recordingFS struct {
+	ensure.FS
+	removeAll []string
+}
+
+func (r *recordingFS) RemoveAll(path string) error {
+	r.removeAll = append(r.removeAll, path)
+	return r.FS.RemoveAll(path)
+}
+
 func TestRun_RefusesRegularFile(t *testing.T) {
 	t.Parallel()
 	cfg := sandbox(t)

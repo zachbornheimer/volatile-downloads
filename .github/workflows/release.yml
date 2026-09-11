@@ -33,14 +33,11 @@ jobs:
         run: |
           ver="${GITHUB_REF_NAME}"
           if gh release view "${ver}" >/dev/null 2>&1; then
-            gh release upload "${ver}" \
-              volatile-downloads-darwin-arm64 \
-              volatile-downloads-darwin-amd64 \
-              --clobber
-          else
-            gh release create "${ver}" \
-              volatile-downloads-darwin-arm64 \
-              volatile-downloads-darwin-amd64 \
-              --title "volatile-downloads ${ver}" \
-              --generate-notes
+            echo "release ${ver} already exists — not overwriting assets (CI builds are unsigned)"
+            exit 0
           fi
+          gh release create "${ver}" \
+            volatile-downloads-darwin-arm64 \
+            volatile-downloads-darwin-amd64 \
+            --title "volatile-downloads ${ver}" \
+            --generate-notes

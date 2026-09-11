@@ -135,10 +135,9 @@ func mergeDir(fsys FS, cfg Config, names []string) error {
 		src := filepath.Join(cfg.Link, name)
 		dst := filepath.Join(cfg.Target, name)
 		if _, err := fsys.Lstat(dst); err == nil {
-			if err := fsys.RemoveAll(src); err != nil {
-				return fmt.Errorf("drop duplicate %q: %w", src, err)
+			if err := fsys.RemoveAll(dst); err != nil {
+				return fmt.Errorf("replace leftover %q: %w", dst, err)
 			}
-			continue
 		} else if !os.IsNotExist(err) {
 			return fmt.Errorf("stat %q: %w", dst, err)
 		}
