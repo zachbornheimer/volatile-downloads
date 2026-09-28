@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -31,9 +32,9 @@ func main() {
 		Title:  "volatile-downloads",
 		Stdout: os.Stderr,
 	})
-	evo.Main(func() error {
+	os.Exit(evo.Main(func(ctx context.Context) error {
 		return run(cfg, showVersion, parseErr)
-	})
+	}))
 }
 
 func parseFlags(args []string) (ensure.Config, bool, error) {
