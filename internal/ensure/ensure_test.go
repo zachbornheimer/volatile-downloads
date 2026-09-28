@@ -60,6 +60,34 @@ func TestRun_NoopWhenAlreadyCorrect(t *testing.T) {
 	}
 }
 
+func TestRun_NoopWithExistingIconDoesNotStamp(t *testing.T) {
+	t.Parallel()
+	cfg := sandbox(t)
+	if err := os.MkdirAll(cfg.Target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.Target, "Icon\r"), []byte("icon"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(cfg.Target, cfg.Link); err != nil {
+		t.Fatal(err)
+	}
+	look := &recordLook{}
+	plan, err := ensure.Run(files.OS{}, look, cfg)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if plan.Action != ensure.ActionNothing {
+		t.Fatalf("action = %v, want nothing", plan.Action)
+	}
+	if len(look.dirs) != 0 {
+		t.Fatalf("ApplyDownloadsIcon called on %v, want none", look.dirs)
+	}
+	if look.docks != 0 {
+		t.Fatalf("RefreshDock called %d times, want 0", look.docks)
+	}
+}
+
 func TestRun_ReplacesWrongSymlink(t *testing.T) {
 	t.Parallel()
 	cfg := sandbox(t)

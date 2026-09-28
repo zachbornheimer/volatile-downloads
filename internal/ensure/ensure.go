@@ -113,7 +113,7 @@ func Execute(fsys FS, look Look, cfg Config, plan Plan) error {
 	default:
 		return fmt.Errorf("unknown action %d", plan.Action)
 	}
-	return applyLook(look, cfg.Target, plan.RefreshDock)
+	return applyLook(look, cfg.Target, plan.StampIcon, plan.RefreshDock)
 }
 
 // Run observes, decides, and executes.
@@ -129,12 +129,14 @@ func Run(fsys FS, look Look, cfg Config) (Plan, error) {
 	return plan, nil
 }
 
-func applyLook(look Look, dir string, refreshDock bool) error {
+func applyLook(look Look, dir string, stampIcon, refreshDock bool) error {
 	if look == nil {
 		return nil
 	}
-	if err := look.ApplyDownloadsIcon(dir); err != nil {
-		return fmt.Errorf("downloads icon: %w", err)
+	if stampIcon {
+		if err := look.ApplyDownloadsIcon(dir); err != nil {
+			return fmt.Errorf("downloads icon: %w", err)
+		}
 	}
 	if refreshDock {
 		_ = look.RefreshDock()
