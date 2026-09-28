@@ -97,3 +97,15 @@ func TestDecide_NoDockRefreshWhenIconAlreadyPresent(t *testing.T) {
 		t.Fatal("did not expect Dock refresh when the icon is already set")
 	}
 }
+
+func TestDecide_NoStampWhenIconAlreadyPresent(t *testing.T) {
+	t.Parallel()
+	cfg := Config{Target: "/tmp/Downloads", Link: "/Users/z/Downloads", RefreshDock: true}
+	plan := Decide(Observation{TargetExists: true, TargetHasIcon: true, Link: LinkSymlink, LinkDest: "/tmp/Downloads"}, cfg)
+	if plan.StampIcon {
+		t.Fatal("did not expect icon stamp when the icon is already set")
+	}
+	if plan.RefreshDock {
+		t.Fatal("did not expect Dock refresh when the icon is already set")
+	}
+}

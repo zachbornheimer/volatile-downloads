@@ -44,6 +44,7 @@ type Plan struct {
 	Action      Action
 	Reason      string
 	Merge       []string
+	StampIcon   bool
 	RefreshDock bool
 }
 
@@ -98,7 +99,8 @@ func Decide(obs Observation, cfg Config) Plan {
 		p.Action = ActionCreateLink
 		p.Reason = "point Downloads at " + cfg.Target
 	}
-	p.RefreshDock = cfg.RefreshDock && p.Action != ActionRefuse &&
+	p.StampIcon = p.Action != ActionRefuse &&
 		(!obs.TargetHasIcon || p.Action != ActionNothing)
+	p.RefreshDock = cfg.RefreshDock && p.StampIcon
 	return p
 }

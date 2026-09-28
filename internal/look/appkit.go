@@ -2,12 +2,16 @@
 package look
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
+	"time"
 )
 
 // DownloadsFolderIcon is the system Downloads folder icns.
 const DownloadsFolderIcon = "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/DownloadsFolder.icns"
+
+const iconStampTimeout = 5 * time.Second
 
 const setIconJS = `function run(argv) {
   ObjC.import('AppKit');
@@ -28,7 +32,9 @@ type AppKit struct{}
 
 // ApplyDownloadsIcon stamps dir with the built-in Downloads folder icon.
 func (AppKit) ApplyDownloadsIcon(dir string) error {
-	cmd := exec.Command("osascript", "-l", "JavaScript", "-e", setIconJS, "--", dir, DownloadsFolderIcon)
+	ctx, cancel := context.WithTimeout(context.Background(), iconStampTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "osascript", "-l", "JavaScript", "-e", setIconJS, "--", dir, DownloadsFolderIcon)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("set Downloads icon on %q: %w (%s)", dir, err, out)

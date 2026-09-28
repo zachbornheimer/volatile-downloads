@@ -2,7 +2,7 @@ module github.com/zachbornheimer/volatile-downloads
 
 go 1.25.11
 
-require github.com/zachbornheimer/evident-output v0.4.3
+require github.com/zachbornheimer/evident-output v1.0.0
 
 require (
 	golang.org/x/sys v0.47.0 // indirect
