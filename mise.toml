@@ -1,5 +1,4 @@
 [tools]
-go = "1.25"
 
 [tasks.setup]
 description = "Download Go modules"
