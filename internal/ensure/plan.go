@@ -16,10 +16,11 @@ const (
 
 // Observation is the live state of the target directory and the Downloads path.
 type Observation struct {
-	TargetExists bool
-	Link         LinkKind
-	LinkDest     string
-	DirNames     []string
+	TargetExists  bool
+	TargetHasIcon bool
+	Link          LinkKind
+	LinkDest      string
+	DirNames      []string
 }
 
 // Action is the effect Execute should perform.
@@ -40,21 +41,29 @@ const (
 
 // Plan is the pure decision produced from an Observation.
 type Plan struct {
-	Action Action
-	Reason string
-	Merge  []string
+	Action      Action
+	Reason      string
+	Merge       []string
+	RefreshDock bool
 }
 
-const dsStoreName = ".DS_Store"
+const (
+	dsStoreName  = ".DS_Store"
+	iconFileName = "Icon\r"
+)
 
 func desiredLink(dest, target string) bool {
 	return dest == target || dest == target+"/"
 }
 
+func skipName(name string) bool {
+	return name == dsStoreName || name == iconFileName
+}
+
 func mergeNames(names []string) []string {
 	out := make([]string, 0, len(names))
 	for _, name := range names {
-		if name == dsStoreName {
+		if skipName(name) {
 			continue
 		}
 		out = append(out, name)
@@ -64,25 +73,32 @@ func mergeNames(names []string) []string {
 
 // Decide returns the plan for obs. It performs no I/O.
 func Decide(obs Observation, cfg Config) Plan {
+	p := Plan{}
 	switch obs.Link {
 	case LinkOther:
-		return Plan{Action: ActionRefuse, Reason: "Downloads exists and is not a directory or symlink"}
+		p.Action = ActionRefuse
+		p.Reason = "Downloads exists and is not a directory or symlink"
 	case LinkSymlink:
 		if desiredLink(obs.LinkDest, cfg.Target) {
-			return Plan{Action: ActionNothing, Reason: "Downloads already points at " + cfg.Target}
+			p.Action = ActionNothing
+			p.Reason = "Downloads already points at " + cfg.Target
+		} else {
+			p.Action = ActionReplaceSymlink
+			p.Reason = "replace symlink so Downloads points at " + cfg.Target
 		}
-		return Plan{Action: ActionReplaceSymlink, Reason: "replace symlink so Downloads points at " + cfg.Target}
 	case LinkDir:
-		names := mergeNames(obs.DirNames)
-		if len(names) == 0 {
-			return Plan{Action: ActionMergeAndReplace, Reason: "replace empty Downloads directory with symlink"}
-		}
-		return Plan{
-			Action: ActionMergeAndReplace,
-			Reason: "merge existing Downloads into " + cfg.Target,
-			Merge:  names,
+		p.Action = ActionMergeAndReplace
+		p.Merge = mergeNames(obs.DirNames)
+		if len(p.Merge) == 0 {
+			p.Reason = "replace empty Downloads directory with symlink"
+		} else {
+			p.Reason = "merge existing Downloads into " + cfg.Target
 		}
 	default:
-		return Plan{Action: ActionCreateLink, Reason: "point Downloads at " + cfg.Target}
+		p.Action = ActionCreateLink
+		p.Reason = "point Downloads at " + cfg.Target
 	}
+	p.RefreshDock = cfg.RefreshDock && p.Action != ActionRefuse &&
+		(!obs.TargetHasIcon || p.Action != ActionNothing)
+	return p
 }

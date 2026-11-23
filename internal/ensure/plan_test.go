@@ -70,3 +70,30 @@ func TestDecide_RegularFileIsRefused(t *testing.T) {
 		t.Fatalf("action = %v, want refuse", plan.Action)
 	}
 }
+
+func TestDecide_SkipsIconFileWhenMerging(t *testing.T) {
+	t.Parallel()
+	cfg := Config{Target: "/tmp/Downloads", Link: "/Users/z/Downloads"}
+	plan := Decide(Observation{Link: LinkDir, DirNames: []string{"receipt.pdf", "Icon\r", ".DS_Store"}}, cfg)
+	if len(plan.Merge) != 1 || plan.Merge[0] != "receipt.pdf" {
+		t.Fatalf("merge = %v, want [receipt.pdf]", plan.Merge)
+	}
+}
+
+func TestDecide_RefreshDockWhenIconMissing(t *testing.T) {
+	t.Parallel()
+	cfg := Config{Target: "/tmp/Downloads", Link: "/Users/z/Downloads", RefreshDock: true}
+	plan := Decide(Observation{TargetExists: true, TargetHasIcon: false, Link: LinkSymlink, LinkDest: "/tmp/Downloads"}, cfg)
+	if !plan.RefreshDock {
+		t.Fatal("expected Dock refresh when the Downloads icon is missing")
+	}
+}
+
+func TestDecide_NoDockRefreshWhenIconAlreadyPresent(t *testing.T) {
+	t.Parallel()
+	cfg := Config{Target: "/tmp/Downloads", Link: "/Users/z/Downloads", RefreshDock: true}
+	plan := Decide(Observation{TargetExists: true, TargetHasIcon: true, Link: LinkSymlink, LinkDest: "/tmp/Downloads"}, cfg)
+	if plan.RefreshDock {
+		t.Fatal("did not expect Dock refresh when the icon is already set")
+	}
+}
